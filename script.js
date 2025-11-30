@@ -97,15 +97,45 @@ async function loop() {
     // 1. Draw Video Frame
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+    if (!isModelLoaded) {
+        // Show loading status on canvas
+        ctx.fillStyle = 'white';
+        ctx.font = '20px Arial';
+        ctx.fillText('Loading models...', 10, 30);
+        animationId = requestAnimationFrame(loop);
+        return;
+    }
+
     // 2. Detect Faces
-    // Using TinyFaceDetector for performance
-    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+    // Tune options: inputSize (higher = slower but better for small faces), scoreThreshold
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.5 });
 
-    // 3. Update Face Tracking (Simple distance matching)
-    updateFaces(detections);
+    try {
+        const detections = await faceapi.detectAllFaces(video, options);
 
-    // 4. Draw Mosaics
-    drawMosaics();
+        // 3. Update Face Tracking
+        updateFaces(detections);
+
+        // 4. Draw Mosaics
+        drawMosaics();
+
+        // Debug: Draw detection count
+        ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+        ctx.font = '16px Arial';
+        ctx.fillText(`Faces detected: ${detections.length}`, 10, 25);
+
+        // Debug: Draw bounding boxes for all detections (faintly)
+        detections.forEach(d => {
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(d.box.x, d.box.y, d.box.width, d.box.height);
+        });
+
+    } catch (err) {
+        console.error("Detection error:", err);
+        ctx.fillStyle = 'red';
+        ctx.fillText(`Error: ${err.message}`, 10, 50);
+    }
 
     animationId = requestAnimationFrame(loop);
 }
