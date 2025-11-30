@@ -1,41 +1,57 @@
 :root {
-    --primary-color: #6200ea;
-    --primary-hover: #3700b3;
-    --bg-color: #121212;
-    --surface-color: #1e1e1e;
-    --text-color: #ffffff;
-    --text-secondary: #b0b0b0;
+    --bg-color: #0f172a;
+    --card-bg: rgba(30, 41, 59, 0.7);
+    --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --text-color: #f8fafc;
+    --text-secondary: #94a3b8;
+    --border-color: rgba(148, 163, 184, 0.1);
+    --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Inter', sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
-    margin: 0;
-    padding: 0;
+    min-height: 100vh;
     display: flex;
     justify-content: center;
-    min-height: 100vh;
+    align-items: center;
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15) 0%, transparent 20%),
+        radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.15) 0%, transparent 20%);
 }
 
-.container {
+.app-container {
     width: 100%;
-    max-width: 1200px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    max-width: 800px;
+    padding: 2rem;
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 24px;
+    border: var(--glass-border);
+    box-shadow: var(--shadow);
+    text-align: center;
+    margin: 1rem;
 }
 
 header {
-    text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 2rem;
 }
 
 header h1 {
-    margin: 0 0 10px 0;
     font-size: 2.5rem;
-    background: linear-gradient(45deg, #ff00cc, #3333ff);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(to right, #60a5fa, #a78bfa);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -45,124 +61,122 @@ header p {
 }
 
 .upload-section {
-    margin-bottom: 20px;
+    margin-bottom: 2rem;
 }
 
 input[type="file"] {
     display: none;
 }
 
-.custom-file-upload {
-    border: 1px solid var(--primary-color);
-    display: inline-block;
-    padding: 10px 20px;
+.upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
     cursor: pointer;
-    border-radius: 5px;
-    background-color: var(--surface-color);
     transition: all 0.3s ease;
+    font-weight: 500;
 }
 
-.custom-file-upload:hover {
-    background-color: var(--primary-color);
+.upload-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
 }
 
 .canvas-container {
     position: relative;
     width: 100%;
-    max-width: 800px;
-    aspect-ratio: 16/9;
-    background-color: #000;
-    border-radius: 8px;
+    min-height: 400px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    margin-bottom: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
+    margin-bottom: 2rem;
+    border: 1px dashed var(--border-color);
 }
 
-#sourceVideo {
-    display: none; /* Hidden, we draw to canvas */
-}
-
-#outputCanvas {
+.canvas-container img,
+.canvas-container canvas {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     max-width: 100%;
     max-height: 100%;
-    cursor: crosshair;
 }
 
-#loadingOverlay {
+.placeholder-text {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.primary-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 2rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.primary-btn:hover:not(:disabled) {
+    background-color: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.primary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Loading Indicator */
+.hidden {
+    display: none !important;
+}
+
+#loadingIndicator {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.7);
+    background: rgba(15, 23, 42, 0.8);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 10;
-}
-
-.hidden {
-    display: none !important;
+    z-index: 100;
+    border-radius: 24px;
 }
 
 .spinner {
-    border: 4px solid rgba(255, 255, 255, 0.3);
-    border-radius: 50%;
-    border-top: 4px solid var(--primary-color);
     width: 40px;
     height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+    border-left-color: var(--primary-color);
+    border-radius: 50%;
     animation: spin 1s linear infinite;
-    margin-bottom: 10px;
+    margin-bottom: 1rem;
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.controls {
-    display: flex;
-    gap: 15px;
-    opacity: 1;
-    transition: opacity 0.3s;
-}
-
-.controls.disabled {
-    opacity: 0.5;
-    pointer-events: none;
-}
-
-button {
-    background-color: var(--surface-color);
-    color: var(--text-color);
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1rem;
-    transition: background-color 0.2s;
-}
-
-button:hover:not(:disabled) {
-    background-color: var(--primary-color);
-}
-
-button:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-}
-
-#recordBtn.recording {
-    background-color: #ff0000;
-    animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+    to { transform: rotate(360deg); }
 }

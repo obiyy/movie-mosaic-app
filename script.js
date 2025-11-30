@@ -1,309 +1,179 @@
-const videoUpload = document.getElementById('videoUpload');
-const video = document.getElementById('sourceVideo');
-const canvas = document.getElementById('outputCanvas');
-const ctx = canvas.getContext('2d');
-const loadingOverlay = document.getElementById('loadingOverlay');
-const controls = document.getElementById('controls');
-const playPauseBtn = document.getElementById('playPauseBtn');
-const recordBtn = document.getElementById('recordBtn');
-const downloadBtn = document.getElementById('downloadBtn');
+const imageUpload = document.getElementById('imageUpload');
+const canvasContainer = document.getElementById('canvasContainer');
+const saveBtn = document.getElementById('saveBtn');
+const loadingIndicator = document.getElementById('loadingIndicator');
+const placeholderText = document.querySelector('.placeholder-text');
 
-let isModelLoaded = false;
-let isVideoReady = false;
-let animationId;
-let faces = []; // Stores detected faces and their mosaic state
-let mediaRecorder;
-let recordedChunks = [];
-let isRecording = false;
+let image;
+let canvas;
+let detections = [];
+let mosaicStates = []; // Array of booleans, true = apply mosaic
+let isModelsLoaded = false;
 
-// Configuration
-const MOSAIC_BLOCK_SIZE = 15; // Size of mosaic blocks
+// Load models from a CDN that supports CORS
+// Using a specific version to ensure compatibility
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
-// Initialize
-async function init() {
-    loadingOverlay.classList.remove('hidden');
+async function loadModels() {
+    loadingIndicator.classList.remove('hidden');
     try {
-        // Load models from a reliable CDN
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-
-        isModelLoaded = true;
-        console.log('Models loaded');
-        loadingOverlay.classList.add('hidden');
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+            // faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL) // Heavier but more accurate
+        ]);
+        isModelsLoaded = true;
+        console.log('Models loaded successfully');
     } catch (error) {
         console.error('Error loading models:', error);
-        alert('Failed to load AI models. Please check your internet connection.');
+        alert('Failed to load AI models. Please check your internet connection or CORS settings.');
+    } finally {
+        loadingIndicator.classList.add('hidden');
     }
 }
 
-init();
+// Initialize
+loadModels();
 
-// Event Listeners
-videoUpload.addEventListener('change', handleVideoUpload);
-video.addEventListener('loadedmetadata', onVideoLoaded);
-video.addEventListener('play', () => {
-    playPauseBtn.textContent = 'Pause';
-    loop();
-});
-video.addEventListener('pause', () => {
-    playPauseBtn.textContent = 'Play';
-    cancelAnimationFrame(animationId);
-});
-video.addEventListener('ended', () => {
-    playPauseBtn.textContent = 'Play';
-    cancelAnimationFrame(animationId);
-    if (isRecording) stopRecording();
-});
-
-playPauseBtn.addEventListener('click', togglePlayPause);
-recordBtn.addEventListener('click', toggleRecording);
-canvas.addEventListener('mousedown', handleCanvasClick);
-
-function handleVideoUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const url = URL.createObjectURL(file);
-    video.src = url;
-    downloadBtn.disabled = true;
-    recordedChunks = [];
-}
-
-function onVideoLoaded() {
-    isVideoReady = true;
-
-    // Set canvas size to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    // Draw initial frame
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    controls.classList.remove('disabled');
-}
-
-function togglePlayPause() {
-    if (video.paused) {
-        video.play();
-    } else {
-        video.pause();
-    }
-}
-
-// Main Processing Loop
-async function loop() {
-    if (video.paused || video.ended) return;
-
-    // 1. Draw Video Frame
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    if (!isModelLoaded) {
-        // Show loading status on canvas
-        ctx.fillStyle = 'white';
-        ctx.font = '20px Arial';
-        ctx.fillText('Loading models...', 10, 30);
-        animationId = requestAnimationFrame(loop);
+imageUpload.addEventListener('change', async () => {
+    if (!isModelsLoaded) {
+        alert('Models are still loading, please wait...');
         return;
     }
 
-    // 2. Detect Faces
-    // Tune options: inputSize (higher = slower but better for small faces), scoreThreshold
-    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.5 });
+    const file = imageUpload.files[0];
+    if (!file) return;
 
-    try {
-        const detections = await faceapi.detectAllFaces(video, options);
+    // Show loading
+    loadingIndicator.classList.remove('hidden');
 
-        // 3. Update Face Tracking
-        updateFaces(detections);
+    // Create image from file
+    const img = await faceapi.bufferToImage(file);
+    image = img;
 
-        // 4. Draw Mosaics
-        drawMosaics();
+    // Clear previous canvas
+    canvasContainer.innerHTML = '';
+    canvasContainer.appendChild(image); // Temporarily add image to get dimensions if needed, or just use it for detection
 
-        // Debug: Draw detection count
-        ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
-        ctx.font = '16px Arial';
-        ctx.fillText(`Faces detected: ${detections.length}`, 10, 25);
+    // Create canvas
+    canvas = faceapi.createCanvasFromMedia(image);
+    canvasContainer.innerHTML = ''; // Clear again
+    canvasContainer.appendChild(canvas);
 
-        // Debug: Draw bounding boxes for all detections (faintly)
-        detections.forEach(d => {
-            ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(d.box.x, d.box.y, d.box.width, d.box.height);
-        });
+    // Resize canvas to match display size (responsive)
+    // For simplicity in this version, we'll keep intrinsic size but scale with CSS
+    // To handle clicks correctly, we need to map display coordinates to canvas coordinates
+    // But for now, let's just use the full resolution canvas
 
-    } catch (err) {
-        console.error("Detection error:", err);
-        ctx.fillStyle = 'red';
-        ctx.fillText(`Error: ${err.message}`, 10, 50);
+    const displaySize = { width: image.width, height: image.height };
+    faceapi.matchDimensions(canvas, displaySize);
+
+    // Detect faces
+    // Using TinyFaceDetector for speed
+    detections = await faceapi.detectAllFaces(image, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+    const resizedDetections = faceapi.resizeResults(detections, displaySize);
+
+    // Initialize mosaic states (all ON by default)
+    mosaicStates = new Array(resizedDetections.length).fill(true);
+
+    // Draw
+    draw(resizedDetections);
+
+    // Enable save button
+    saveBtn.disabled = false;
+    placeholderText.style.display = 'none';
+
+    loadingIndicator.classList.add('hidden');
+
+    // Add click event listener to canvas
+    canvas.addEventListener('click', (e) => handleCanvasClick(e, resizedDetections));
+});
+
+function draw(resizedDetections) {
+    const ctx = canvas.getContext('2d');
+
+    // Draw original image
+    ctx.drawImage(image, 0, 0);
+
+    // Draw mosaics
+    resizedDetections.forEach((detection, index) => {
+        if (mosaicStates[index]) {
+            const { x, y, width, height } = detection.detection.box;
+            applyMosaic(ctx, x, y, width, height, 15); // 15 is block size
+        } else {
+            // Optional: Draw a box to show where the face was detected when mosaic is OFF
+            // const { x, y, width, height } = detection.detection.box;
+            // ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+            // ctx.lineWidth = 2;
+            // ctx.strokeRect(x, y, width, height);
+        }
+    });
+}
+
+function applyMosaic(ctx, x, y, width, height, blockSize) {
+    // Adjust dimensions to be integers
+    x = Math.floor(x);
+    y = Math.floor(y);
+    width = Math.floor(width);
+    height = Math.floor(height);
+
+    for (let i = x; i < x + width; i += blockSize) {
+        for (let j = y; j < y + height; j += blockSize) {
+            // Get average color of the block
+            // To improve performance, we could just sample the center pixel
+            // But getting average is better quality
+
+            // Safe bounds check
+            const w = Math.min(blockSize, x + width - i);
+            const h = Math.min(blockSize, y + height - j);
+
+            // Get pixel data for this block
+            // Note: getImageData can be slow if called many times. 
+            // Optimization: Get data for the whole face area once.
+
+            // Simple center sampling for performance
+            const pixelData = ctx.getImageData(i + w / 2, j + h / 2, 1, 1).data;
+
+            ctx.fillStyle = `rgb(${pixelData[0]}, ${pixelData[1]}, ${pixelData[2]})`;
+            ctx.fillRect(i, j, w, h);
+        }
     }
-
-    animationId = requestAnimationFrame(loop);
 }
 
-function updateFaces(detections) {
-    // Simple tracking: match new detections to old ones based on center distance
-    const newFaces = detections.map(d => {
-        const box = d.box;
-        const centerX = box.x + box.width / 2;
-        const centerY = box.y + box.height / 2;
-
-        // Find closest existing face
-        let closest = null;
-        let minDist = Infinity;
-
-        for (const face of faces) {
-            const faceCenterX = face.box.x + face.box.width / 2;
-            const faceCenterY = face.box.y + face.box.height / 2;
-            const dist = Math.hypot(centerX - faceCenterX, centerY - faceCenterY);
-
-            if (dist < minDist) {
-                minDist = dist;
-                closest = face;
-            }
-        }
-
-        // Threshold for being the "same" face (e.g., moved less than 100px)
-        const MATCH_THRESHOLD = Math.max(box.width, box.height) * 1.5;
-
-        let isMosaicOn = true; // Default to ON
-        if (closest && minDist < MATCH_THRESHOLD) {
-            isMosaicOn = closest.isMosaicOn;
-        }
-
-        return {
-            box: box,
-            isMosaicOn: isMosaicOn
-        };
-    });
-
-    faces = newFaces;
-}
-
-// Offscreen canvas for mosaic generation
-const mosaicCanvas = document.createElement('canvas');
-const mosaicCtx = mosaicCanvas.getContext('2d');
-
-function drawMosaics() {
-    faces.forEach(face => {
-        if (!face.isMosaicOn) return;
-
-        const { x, y, width, height } = face.box;
-
-        // Ensure offscreen canvas is big enough
-        if (mosaicCanvas.width < width || mosaicCanvas.height < height) {
-            mosaicCanvas.width = width;
-            mosaicCanvas.height = height;
-        }
-
-        // 1. Draw face from video to offscreen canvas (tiny)
-        const shrinkFactor = 0.1;
-        const sw = Math.ceil(width * shrinkFactor);
-        const sh = Math.ceil(height * shrinkFactor);
-
-        mosaicCtx.imageSmoothingEnabled = true;
-        mosaicCtx.drawImage(video, x, y, width, height, 0, 0, sw, sh);
-
-        // 2. Draw back to offscreen canvas (large) with smoothing disabled
-        mosaicCtx.imageSmoothingEnabled = false;
-        mosaicCtx.drawImage(mosaicCanvas, 0, 0, sw, sh, 0, 0, width, height);
-
-        // 3. Draw from offscreen canvas to main canvas with circular clip
-        ctx.save();
-        ctx.beginPath();
-        ctx.ellipse(x + width / 2, y + height / 2, width / 2 * 0.8, height / 2 * 1.0, 0, 0, 2 * Math.PI);
-        ctx.clip();
-
-        ctx.drawImage(mosaicCanvas, 0, 0, width, height, x, y, width, height);
-
-        ctx.restore();
-    });
-}
-
-function handleCanvasClick(e) {
+function handleCanvasClick(event, resizedDetections) {
     const rect = canvas.getBoundingClientRect();
-    // Calculate scale in case canvas is displayed smaller than actual size
+
+    // Calculate scale factors in case canvas is displayed at different size than intrinsic
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
-    const clickX = (e.clientX - rect.left) * scaleX;
-    const clickY = (e.clientY - rect.top) * scaleY;
+    const x = (event.clientX - rect.left) * scaleX;
+    const y = (event.clientY - rect.top) * scaleY;
 
     // Check if click is inside any face box
-    let clickedFace = false;
-    faces.forEach(face => {
-        const { x, y, width, height } = face.box;
-        if (clickX >= x && clickX <= x + width &&
-            clickY >= y && clickY <= y + height) {
+    let clicked = false;
+    resizedDetections.forEach((detection, index) => {
+        const box = detection.detection.box;
+        if (x >= box.x && x <= box.x + box.width &&
+            y >= box.y && y <= box.y + box.height) {
 
-            face.isMosaicOn = !face.isMosaicOn;
-            clickedFace = true;
+            // Toggle state
+            mosaicStates[index] = !mosaicStates[index];
+            clicked = true;
         }
     });
 
-    if (clickedFace && video.paused) {
-        // Redraw immediately if paused so user sees feedback
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        drawMosaics();
+    if (clicked) {
+        draw(resizedDetections);
     }
 }
 
-// Recording Logic
-function toggleRecording() {
-    if (isRecording) {
-        stopRecording();
-    } else {
-        startRecording();
-    }
-}
+saveBtn.addEventListener('click', () => {
+    if (!canvas) return;
 
-function startRecording() {
-    const stream = canvas.captureStream(30); // 30 FPS
-
-    const options = { mimeType: 'video/webm;codecs=vp9' };
-
-    try {
-        mediaRecorder = new MediaRecorder(stream, options);
-    } catch (e) {
-        // Fallback
-        mediaRecorder = new MediaRecorder(stream);
-    }
-
-    mediaRecorder.ondataavailable = handleDataAvailable;
-    mediaRecorder.onstop = handleStop;
-    mediaRecorder.start();
-
-    isRecording = true;
-    recordBtn.textContent = 'Stop Recording';
-    recordBtn.classList.add('recording');
-
-    // If video is paused, play it
-    if (video.paused) {
-        video.play();
-    }
-}
-
-function stopRecording() {
-    mediaRecorder.stop();
-    isRecording = false;
-    recordBtn.textContent = 'Start Recording';
-    recordBtn.classList.remove('recording');
-}
-
-function handleDataAvailable(event) {
-    if (event.data.size > 0) {
-        recordedChunks.push(event.data);
-    }
-}
-
-function handleStop() {
-    const blob = new Blob(recordedChunks, { type: 'video/webm' });
-    const url = URL.createObjectURL(blob);
-
-    downloadBtn.href = url;
-    downloadBtn.download = 'mosaic-video.webm';
-    downloadBtn.disabled = false;
-
-    downloadBtn.onclick = () => {
-        setTimeout(() => URL.revokeObjectURL(url), 100);
-    };
-}
+    const link = document.createElement('a');
+    link.download = 'mosaic-image.png';
+    link.href = canvas.toDataURL();
+    link.click();
+});

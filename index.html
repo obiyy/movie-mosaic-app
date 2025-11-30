@@ -1,46 +1,77 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Face Mosaic App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
-    <!-- Load face-api.js from CDN -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#0f172a">
+    <!-- Load face-api.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script defer src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => console.log('ServiceWorker registered'))
+                    .catch(err => console.log('ServiceWorker registration failed: ', err));
+            });
+        }
+    </script>
 </head>
+
 <body>
-    <div class="container">
+    <div class="app-container">
         <header>
-            <h1>Face Mosaic Studio</h1>
-            <p>Upload a video to automatically apply mosaics to faces. Click a face to toggle the effect.</p>
+            <h1>Face Mosaic</h1>
+            <p>Upload a photo to automatically detect and mosaic faces.</p>
         </header>
 
         <main>
             <div class="upload-section">
-                <label for="videoUpload" class="custom-file-upload">
-                    Select Video
+                <label for="imageUpload" class="upload-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                    </svg>
+                    Choose Photo
                 </label>
-                <input type="file" id="videoUpload" accept="video/*">
+                <input type="file" id="imageUpload" accept="image/*">
             </div>
 
-            <div class="canvas-container">
-                <div id="loadingOverlay" class="hidden">
-                    <div class="spinner"></div>
-                    <p>Loading AI Models...</p>
+            <div class="canvas-container" id="canvasContainer">
+                <div class="placeholder-text">
+                    No image selected
                 </div>
-                <!-- Hidden video element for source -->
-                <video id="sourceVideo" playsinline muted></video>
-                <!-- Canvas for display and processing -->
-                <canvas id="outputCanvas"></canvas>
+                <!-- Image and Canvas will be injected here -->
             </div>
 
-            <div class="controls disabled" id="controls">
-                <button id="playPauseBtn">Play</button>
-                <button id="recordBtn">Start Recording</button>
-                <button id="downloadBtn" disabled>Download</button>
+            <div class="controls">
+                <button id="saveBtn" class="primary-btn" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                    </svg>
+                    Save Image
+                </button>
+            </div>
+
+            <div id="loadingIndicator" class="hidden">
+                <div class="spinner"></div>
+                <p>Loading AI Models...</p>
             </div>
         </main>
     </div>
 </body>
+
 </html>
