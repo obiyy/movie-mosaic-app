@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Mosaic App</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Load face-api.js from CDN -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script defer src="script.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Face Mosaic Studio</h1>
+            <p>Upload a video to automatically apply mosaics to faces. Click a face to toggle the effect.</p>
+        </header>
+
+        <main>
+            <div class="upload-section">
+                <label for="videoUpload" class="custom-file-upload">
+                    Select Video
+                </label>
+                <input type="file" id="videoUpload" accept="video/*">
+            </div>
+
+            <div class="canvas-container">
+                <div id="loadingOverlay" class="hidden">
+                    <div class="spinner"></div>
+                    <p>Loading AI Models...</p>
+                </div>
+                <!-- Hidden video element for source -->
+                <video id="sourceVideo" playsinline muted></video>
+                <!-- Canvas for display and processing -->
+                <canvas id="outputCanvas"></canvas>
+            </div>
+
+            <div class="controls disabled" id="controls">
+                <button id="playPauseBtn">Play</button>
+                <button id="recordBtn">Start Recording</button>
+                <button id="downloadBtn" disabled>Download</button>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
